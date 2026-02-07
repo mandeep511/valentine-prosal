@@ -66,7 +66,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
         initial={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.6, type: "spring", bounce: 0.3 }}
-        className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-2xl border border-white/50 relative overflow-hidden"
+        className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-2xl border border-white/50 relative overflow-visible"
       >
         {/* Decorative top gradient bar */}
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-300 via-red-300 to-pink-300" />
@@ -112,6 +112,21 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               />
             </div>
           </div>
+          {/* Nagging message with proper spacing */}
+          <AnimatePresence>
+            {noCount > 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-center w-full pb-2"
+              >
+                <p className="text-md md:text-base font-medium text-pink-500 animate-pulse">
+                  {noCount > 5 ? "Say yes already! 🥺" : "Why are you doing this? 😭"}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Mascot section */}
           <motion.div
@@ -120,6 +135,25 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
             transition={{ type: "spring", stiffness: 300 }}
           >
             <div className="relative">
+              {/* "Are you sure?" speech bubble tied to mascot */}
+              <AnimatePresence>
+                {noCount > 0 && noCount <= 3 && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20, scale: 0.8 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="absolute -left-32 md:-left-40 top-1/2 -translate-y-1/2 z-50 bg-white rounded-2xl px-4 py-2 shadow-lg border border-gray-100"
+                    style={{ transformOrigin: 'right center' }}
+                  >
+                    <p className="text-gray-700 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
+                      Are you sure? <span className="text-lg">😰</span>
+                    </p>
+                    {/* Speech bubble tail pointing right toward mascot */}
+                    <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Mascot image with mood-based switching */}
               <motion.div
                 className="relative w-40 h-40 md:w-48 md:h-48"
@@ -183,13 +217,13 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               </motion.div>
 
               {/* Small bow decoration */}
-              <motion.img
+              {/* <motion.img
                 src="./assets/deco_bow.png"
                 className="absolute -top-4 -left-6 w-10 h-10 opacity-80"
                 animate={{ rotate: [-5, 5, -5] }}
                 transition={{ duration: 3, repeat: Infinity }}
                 alt=""
-              />
+              /> */}
             </div>
           </motion.div>
 
@@ -223,22 +257,6 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               </motion.button>
             )}
           </div>
-
-          {/* Nagging message with proper spacing */}
-          <AnimatePresence>
-            {noCount > 2 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-center w-full pb-2"
-              >
-                <p className="text-sm md:text-base font-medium text-pink-500 animate-pulse">
-                  {noCount > 5 ? "Say yes already! 🥺" : "Why are you doing this? 😭"}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Decorative cherries bottom */}
           <motion.img
@@ -279,23 +297,6 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
         document.body
       )}
 
-      {/* "Are you sure?" speech bubble when clicking no */}
-      <AnimatePresence>
-        {noCount > 0 && noCount <= 3 && (
-          <motion.div
-            initial={{ opacity: 0, x: -20, scale: 0.8 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed top-1/3 left-4 z-50 bg-white rounded-2xl px-4 py-2 shadow-lg border border-gray-100"
-            style={{ transformOrigin: 'left center' }}
-          >
-            <p className="text-gray-700 font-medium text-sm flex items-center gap-2">
-              Are you sure? <span className="text-lg">😰</span>
-            </p>
-            <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
