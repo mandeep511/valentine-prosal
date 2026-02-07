@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo } from 'react';
 
 interface FloatingParticle {
   id: number;
   x: number;
-  y: number;
   scale: number;
-  rotation: number;
   delay: number;
   duration: number;
   type: 'heart' | 'sparkle';
@@ -22,9 +19,20 @@ interface FloatingDeco {
 }
 
 const FloatingBackground: React.FC = () => {
-  const [particles, setParticles] = useState<FloatingParticle[]>([]);
+  // Memoize particles - only create once, never re-render
+  const particles = useMemo<FloatingParticle[]>(() =>
+    Array.from({ length: 12 }).map((_, i) => ({
+      id: i,
+      x: (i * 8) + Math.random() * 5, // Distribute evenly with slight randomness
+      scale: 0.5 + (i % 3) * 0.2,
+      delay: i * 0.8,
+      duration: 15 + (i % 4) * 5,
+      type: i % 3 === 0 ? 'sparkle' : 'heart' as const
+    }))
+  , []);
 
-  const decorativeElements: FloatingDeco[] = [
+  // Memoize decorative elements
+  const decorativeElements = useMemo<FloatingDeco[]>(() => [
     {
       id: 'bow-top-left',
       src: './assets/deco_bow.png',
@@ -56,38 +64,18 @@ const FloatingBackground: React.FC = () => {
       size: 'w-14 md:w-20',
       rotation: 12,
       animationDelay: 1.5
-    },
-    {
-      id: 'bow-mid-right',
-      src: './assets/deco_bow.png',
-      position: { top: '40%', right: '2%' },
-      size: 'w-10 md:w-14',
-      rotation: 25,
-      animationDelay: 2
-    },
-    {
-      id: 'cherries-mid-left',
-      src: './assets/deco_cherries.png',
-      position: { top: '55%', left: '2%' },
-      size: 'w-10 md:w-12',
-      rotation: -5,
-      animationDelay: 2.5
     }
-  ];
+  ], []);
 
-  useEffect(() => {
-    const newParticles: FloatingParticle[] = Array.from({ length: 25 }).map((_, i) => ({
+  // Memoize ambient sparkle positions (computed once)
+  const ambientSparkles = useMemo(() =>
+    Array.from({ length: 5 }).map((_, i) => ({
       id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      scale: 0.4 + Math.random() * 0.8,
-      rotation: Math.random() * 360,
-      delay: Math.random() * 8,
-      duration: 12 + Math.random() * 18,
-      type: Math.random() > 0.4 ? 'heart' : 'sparkle'
-    }));
-    setParticles(newParticles);
-  }, []);
+      left: `${15 + i * 18}%`,
+      top: `${20 + (i % 3) * 25}%`,
+      duration: 2.5 + i * 0.3
+    }))
+  , []);
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -102,112 +90,104 @@ const FloatingBackground: React.FC = () => {
         }}
       />
 
-      {/* Decorative noise/grain texture */}
-      <div
-        className="absolute inset-0 opacity-[0.03] mix-blend-multiply"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-        }}
-      />
+      {/* CSS-based floating particles - much more performant than framer-motion */}
+      <style>{`
+        @keyframes floatUp {
+          0% { transform: translateY(110vh) rotate(0deg); opacity: 0.15; }
+          50% { opacity: 0.35; }
+          100% { transform: translateY(-10vh) rotate(360deg); opacity: 0.15; }
+        }
+        @keyframes gentleFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes sparkle {
+          0%, 100% { opacity: 0; transform: scale(0.5); }
+          50% { opacity: 0.6; transform: scale(1.2); }
+        }
+        .float-particle {
+          will-change: transform, opacity;
+          animation: floatUp var(--duration) linear infinite;
+          animation-delay: var(--delay);
+        }
+        .gentle-float {
+          will-change: transform;
+          animation: gentleFloat 4s ease-in-out infinite;
+          animation-delay: var(--delay);
+        }
+        .sparkle-effect {
+          will-change: transform, opacity;
+          animation: sparkle var(--duration) ease-in-out infinite;
+          animation-delay: var(--delay);
+        }
+      `}</style>
 
-      {/* Floating particles using custom assets */}
+      {/* Floating particles using CSS animations */}
       {particles.map((particle) => (
-        <motion.div
+        <div
           key={particle.id}
-          className="absolute select-none"
+          className="absolute float-particle select-none"
           style={{
-            width: particle.type === 'heart' ? '40px' : '30px',
-            height: particle.type === 'heart' ? '40px' : '30px',
-          }}
-          initial={{
-            x: `${particle.x}vw`,
-            y: "110vh",
-            rotate: particle.rotation,
-            scale: particle.scale,
-            opacity: 0.15
-          }}
-          animate={{
-            y: "-10vh",
-            rotate: particle.rotation + 360,
-            opacity: [0.15, 0.35, 0.15]
-          }}
-          transition={{
-            duration: particle.duration,
-            repeat: Infinity,
-            delay: particle.delay,
-            ease: "linear"
-          }}
+            left: `${particle.x}%`,
+            width: particle.type === 'heart' ? '32px' : '24px',
+            height: particle.type === 'heart' ? '32px' : '24px',
+            '--duration': `${particle.duration}s`,
+            '--delay': `${particle.delay}s`,
+            transform: `scale(${particle.scale})`,
+          } as React.CSSProperties}
         >
           <img
             src={particle.type === 'heart' ? './assets/particle_heart.png' : './assets/particle_sparkle.png'}
             alt=""
             className="w-full h-full object-contain"
-            style={{
-              filter: particle.type === 'sparkle' ? 'drop-shadow(0 0 3px rgba(255,215,0,0.5))' : 'none'
-            }}
+            loading="lazy"
           />
-        </motion.div>
+        </div>
       ))}
 
-      {/* Static decorative elements */}
+      {/* Static decorative elements with CSS animation */}
       {decorativeElements.map((deco) => (
-        <motion.div
+        <div
           key={deco.id}
-          className={`absolute ${deco.size} opacity-60 hover:opacity-80 transition-opacity`}
+          className={`absolute ${deco.size} opacity-60 gentle-float`}
           style={{
             ...deco.position,
-            transform: `rotate(${deco.rotation}deg)`
-          }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{
-            opacity: 0.6,
-            scale: 1,
-            y: [0, -8, 0]
-          }}
-          transition={{
-            opacity: { duration: 0.8, delay: deco.animationDelay },
-            scale: { duration: 0.8, delay: deco.animationDelay },
-            y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: deco.animationDelay }
-          }}
+            transform: `rotate(${deco.rotation}deg)`,
+            '--delay': `${deco.animationDelay}s`,
+          } as React.CSSProperties}
         >
           <img
             src={deco.src}
             alt=""
             className="w-full h-full object-contain drop-shadow-lg"
+            loading="lazy"
           />
-        </motion.div>
+        </div>
       ))}
 
-      {/* Ambient sparkle effects */}
-      {[...Array(8)].map((_, i) => (
-        <motion.div
-          key={`ambient-sparkle-${i}`}
-          className="absolute w-4 h-4"
+      {/* Ambient sparkle effects with CSS */}
+      {ambientSparkles.map((sparkle) => (
+        <div
+          key={`ambient-sparkle-${sparkle.id}`}
+          className="absolute w-4 h-4 sparkle-effect"
           style={{
-            left: `${10 + Math.random() * 80}%`,
-            top: `${10 + Math.random() * 80}%`,
-          }}
-          animate={{
-            opacity: [0, 0.6, 0],
-            scale: [0.5, 1.2, 0.5],
-          }}
-          transition={{
-            duration: 2 + Math.random() * 2,
-            repeat: Infinity,
-            delay: i * 0.5,
-            ease: "easeInOut"
-          }}
+            left: sparkle.left,
+            top: sparkle.top,
+            '--duration': `${sparkle.duration}s`,
+            '--delay': `${sparkle.id * 0.5}s`,
+          } as React.CSSProperties}
         >
           <img
             src="./assets/particle_sparkle.png"
             alt=""
             className="w-full h-full object-contain"
             style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))' }}
+            loading="lazy"
           />
-        </motion.div>
+        </div>
       ))}
     </div>
   );
 };
 
-export default FloatingBackground;
+export default React.memo(FloatingBackground);

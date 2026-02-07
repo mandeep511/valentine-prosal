@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NO_PHRASES, YES_PHRASES } from '../constants';
@@ -11,29 +11,92 @@ interface ProposalCardProps {
 
 type MascotMood = 'shy' | 'happy' | 'pleading';
 
+// Get name from URL param or fallback to default
+const getNameFromUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name');
+    if (name && name.trim()) {
+      // Capitalize first letter and decode URI
+      const decoded = decodeURIComponent(name.trim());
+      return decoded.charAt(0).toUpperCase() + decoded.slice(1);
+    }
+  }
+  return 'Minakshi';
+};
+
 const MASCOT_IMAGES: Record<MascotMood, string> = {
   shy: './assets/mascot_shy.png',
   happy: './assets/mascot_happy.png',
   pleading: './assets/mascot_pleading.png'
 };
 
+// CSS animations extracted outside component to prevent re-injection
+const cardStyles = `
+  @keyframes gentle-rotate {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(5deg); }
+    75% { transform: rotate(-5deg); }
+  }
+  @keyframes gentle-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  @keyframes pulse-scale {
+    0%, 100% { transform: scale(0.9); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+  }
+  @keyframes heart-float {
+    0%, 100% { transform: translateY(-5px) rotate(-10deg); }
+    50% { transform: translateY(5px) rotate(10deg); }
+  }
+  @keyframes heart-float-alt {
+    0%, 100% { transform: translateY(5px) rotate(10deg); }
+    50% { transform: translateY(-5px) rotate(-10deg); }
+  }
+  @keyframes broken-heart {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.7; }
+    50% { transform: translateX(-50%) translateY(3px); opacity: 1; }
+  }
+  .gentle-rotate {
+    animation: gentle-rotate 4s ease-in-out infinite;
+  }
+  .gentle-bob {
+    animation: gentle-bob 2s ease-in-out infinite;
+  }
+  .pulse-scale {
+    animation: pulse-scale 2s ease-in-out infinite;
+  }
+  .heart-float {
+    animation: heart-float 2s ease-in-out infinite;
+  }
+  .heart-float-alt {
+    animation: heart-float-alt 1.5s ease-in-out infinite;
+  }
+  .broken-heart {
+    animation: broken-heart 1.5s ease-in-out infinite;
+  }
+`;
+
 const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
   const [noCount, setNoCount] = useState(0);
   const [noButtonPos, setNoButtonPos] = useState<Position>({ x: 0, y: 0 });
-  const [mascotMood, setMascotMood] = useState<MascotMood>('shy');
   const [isYesHovered, setIsYesHovered] = useState(false);
+  const [recipientName, setRecipientName] = useState('Minakshi');
 
+  // Read name from URL on mount
   useEffect(() => {
-    if (noCount > 0) {
-      setMascotMood('pleading');
-    } else if (isYesHovered) {
-      setMascotMood('happy');
-    } else {
-      setMascotMood('shy');
-    }
+    setRecipientName(getNameFromUrl());
+  }, []);
+
+  // Derive mascot mood directly instead of useEffect
+  const mascotMood = useMemo<MascotMood>(() => {
+    if (noCount > 0) return 'pleading';
+    if (isYesHovered) return 'happy';
+    return 'shy';
   }, [noCount, isYesHovered]);
 
-  const moveButton = () => {
+  const moveButton = useCallback(() => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const btnWidth = 160;
@@ -47,21 +110,22 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
     const newY = Math.random() * (Math.max(0, maxY - padding)) + padding;
 
     setNoButtonPos({ x: newX, y: newY });
-  };
+  }, []);
 
-  const handleNoClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleNoClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     setNoCount(prev => prev + 1);
     moveButton();
-  };
+  }, [moveButton]);
 
-  const getNoText = () => NO_PHRASES[Math.min(noCount, NO_PHRASES.length - 1)];
-  const getYesText = () => YES_PHRASES[Math.min(noCount, YES_PHRASES.length - 1)];
-
+  const noText = NO_PHRASES[Math.min(noCount, NO_PHRASES.length - 1)];
+  const yesText = YES_PHRASES[Math.min(noCount, YES_PHRASES.length - 1)];
   const yesScale = Math.min(1 + (noCount * 0.05), 1.15);
 
   return (
     <div className="relative w-full max-w-md mx-auto px-4">
+      <style>{cardStyles}</style>
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
@@ -71,28 +135,20 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
         {/* Decorative top gradient bar */}
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-300 via-red-300 to-pink-300" />
 
-        {/* Background glows */}
+        {/* Background glows - static, no animation needed */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-pink-100 rounded-full blur-3xl opacity-50" />
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-red-50 rounded-full blur-3xl opacity-50" />
 
-        {/* Decorative stamp in corner */}
-        <motion.div
-          className="absolute top-4 right-4 w-12 h-12 opacity-70"
-          animate={{ rotate: [0, 5, 0] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          <img src="./assets/deco_stamp.png" alt="" className="w-full h-full object-contain" />
-        </motion.div>
+        {/* Decorative stamp in corner - CSS animation */}
+        <div className="absolute top-4 right-4 w-12 h-12 opacity-70 gentle-rotate">
+          <img src="./assets/deco_stamp.png" alt="" className="w-full h-full object-contain" loading="lazy" />
+        </div>
 
         <div className="relative z-10 flex flex-col items-center w-full">
-          {/* Heart emoji header */}
-          <motion.div
-            animate={{ rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="text-6xl mb-4 drop-shadow-sm select-none"
-          >
+          {/* Heart emoji header - CSS animation */}
+          <div className="text-6xl mb-4 drop-shadow-sm select-none gentle-rotate">
             💝
-          </motion.div>
+          </div>
 
           {/* Title section */}
           <div className="space-y-1 text-center mb-6">
@@ -100,19 +156,26 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               Will you be my Valentine?
             </h2>
             <div className="inline-block relative pt-2">
-              <p className="text-3xl md:text-4xl font-cursive text-pink-600 transform -rotate-2">
-                Minakshi
+              <p
+                className="text-3xl md:text-4xl text-pink-600 transform -rotate-2"
+                style={{
+                  fontFamily: "'Dancing Script', 'Pacifico', cursive",
+                  fontWeight: 600,
+                  textShadow: '1px 1px 2px rgba(236, 72, 153, 0.15)'
+                }}
+              >
+                {recipientName}
               </p>
-              <motion.img
+              <img
                 src="./assets/particle_sparkle.png"
-                className="absolute -right-6 -top-1 w-5 h-5"
-                animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute -right-6 -top-1 w-5 h-5 pulse-scale"
                 alt=""
+                loading="lazy"
               />
             </div>
           </div>
-          {/* Nagging message with proper spacing */}
+
+          {/* Nagging message */}
           <AnimatePresence>
             {noCount > 2 && (
               <motion.div
@@ -129,11 +192,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
           </AnimatePresence>
 
           {/* Mascot section */}
-          <motion.div
-            className="w-full flex justify-center mb-6 relative"
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
+          <div className="w-full flex justify-center mb-6 relative">
             <div className="relative">
               {/* "Are you sure?" speech bubble tied to mascot */}
               <AnimatePresence>
@@ -148,7 +207,6 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
                     <p className="text-gray-700 font-medium text-sm flex items-center gap-2 whitespace-nowrap">
                       Are you sure? <span className="text-lg">😰</span>
                     </p>
-                    {/* Speech bubble tail pointing right toward mascot */}
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
                   </motion.div>
                 )}
@@ -168,68 +226,48 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
                   className="w-full h-full object-contain drop-shadow-xl"
                 />
 
-                {/* Floating hearts around happy mascot */}
+                {/* Floating hearts around happy mascot - CSS animations */}
                 {mascotMood === 'happy' && (
                   <>
-                    <motion.img
+                    <img
                       src="./assets/particle_heart.png"
-                      className="absolute -top-2 -left-4 w-6 h-6"
-                      animate={{ y: [-5, 5, -5], rotate: [-10, 10, -10] }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      className="absolute -top-2 -left-4 w-6 h-6 heart-float"
                       alt=""
+                      loading="lazy"
                     />
-                    <motion.img
+                    <img
                       src="./assets/particle_heart.png"
-                      className="absolute -top-4 -right-2 w-5 h-5"
-                      animate={{ y: [5, -5, 5], rotate: [10, -10, 10] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
+                      className="absolute -top-4 -right-2 w-5 h-5 heart-float-alt"
                       alt=""
+                      loading="lazy"
                     />
-                    <motion.img
+                    <img
                       src="./assets/particle_sparkle.png"
-                      className="absolute top-0 right-0 w-4 h-4"
-                      animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
-                      transition={{ duration: 1, repeat: Infinity }}
+                      className="absolute top-0 right-0 w-4 h-4 pulse-scale"
                       alt=""
+                      loading="lazy"
                     />
                   </>
                 )}
 
-                {/* Tears effect for pleading mascot */}
+                {/* Tears effect for pleading mascot - CSS animation */}
                 {mascotMood === 'pleading' && (
-                  <motion.div
-                    className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-2xl"
-                    animate={{ y: [0, 3, 0], opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
+                  <div className="absolute -bottom-2 left-1/2 text-2xl broken-heart">
                     💔
-                  </motion.div>
+                  </div>
                 )}
               </motion.div>
 
-              {/* Decorative rose */}
-              <motion.div
-                className="absolute -bottom-2 -right-6 text-3xl select-none"
-                animate={{ y: [0, -5, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
+              {/* Decorative rose - CSS animation */}
+              <div className="absolute -bottom-2 -right-6 text-3xl select-none gentle-bob">
                 🌹
-              </motion.div>
-
-              {/* Small bow decoration */}
-              {/* <motion.img
-                src="./assets/deco_bow.png"
-                className="absolute -top-4 -left-6 w-10 h-10 opacity-80"
-                animate={{ rotate: [-5, 5, -5] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                alt=""
-              /> */}
+              </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Centered Action Button Area */}
           <div className="flex flex-col items-center justify-center w-full mt-2 mb-6 gap-4">
-            {/* Yes Button - Always centered */}
+            {/* Yes Button */}
             <motion.button
               onClick={onYes}
               onMouseEnter={() => setIsYesHovered(true)}
@@ -242,10 +280,10 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
             >
               <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               <Heart className="w-5 h-5 fill-white/90 animate-pulse" />
-              <span className="relative text-lg whitespace-nowrap">{getYesText()}</span>
+              <span className="relative text-lg whitespace-nowrap">{yesText}</span>
             </motion.button>
 
-            {/* No button - Below Yes (initial state only) */}
+            {/* No button - initial state only */}
             {noCount === 0 && (
               <motion.button
                 onClick={handleNoClick}
@@ -253,23 +291,22 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
                 whileTap={{ scale: 0.95 }}
                 className="bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-full hover:bg-gray-200 transition-colors border border-gray-200 select-none"
               >
-                {getNoText()}
+                {noText}
               </motion.button>
             )}
           </div>
 
-          {/* Decorative cherries bottom */}
-          <motion.img
+          {/* Decorative cherries - CSS animation */}
+          <img
             src="./assets/deco_cherries.png"
-            className="absolute -bottom-2 -left-4 w-10 h-10 opacity-70"
-            animate={{ rotate: [-3, 3, -3] }}
-            transition={{ duration: 4, repeat: Infinity }}
+            className="absolute -bottom-4 -left-6 w-16 h-16 opacity-80 gentle-rotate"
             alt=""
+            loading="lazy"
           />
         </div>
       </motion.div>
 
-      {/* Floating No Button - Teleported to Body */}
+      {/* Floating No Button - Portal */}
       {noCount > 0 && createPortal(
         <motion.button
           key="floating-no"
@@ -291,14 +328,13 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
           className="fixed top-0 left-0 z-[9999] bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-3 px-6 rounded-full shadow-xl border border-gray-200 whitespace-nowrap select-none flex items-center gap-2"
           style={{ touchAction: 'manipulation' }}
         >
-          <span>{getNoText()}</span>
+          <span>{noText}</span>
           <span>{noCount > 5 ? "🏃‍♂️" : "😢"}</span>
         </motion.button>,
         document.body
       )}
-
     </div>
   );
 };
 
-export default ProposalCard;
+export default React.memo(ProposalCard);
