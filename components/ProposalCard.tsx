@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NO_PHRASES, YES_PHRASES } from '../constants';
@@ -9,33 +9,37 @@ interface ProposalCardProps {
   onYes: () => void;
 }
 
+type MascotMood = 'shy' | 'happy' | 'pleading';
+
+const MASCOT_IMAGES: Record<MascotMood, string> = {
+  shy: './assets/mascot_shy.png',
+  happy: './assets/mascot_happy.png',
+  pleading: './assets/mascot_pleading.png'
+};
+
 const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
   const [noCount, setNoCount] = useState(0);
   const [noButtonPos, setNoButtonPos] = useState<Position>({ x: 0, y: 0 });
-  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [mascotMood, setMascotMood] = useState<MascotMood>('shy');
+  const [isYesHovered, setIsYesHovered] = useState(false);
 
   useEffect(() => {
-    // Initialize window size
-    setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    
-    const handleResize = () => {
-      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (noCount > 0) {
+      setMascotMood('pleading');
+    } else if (isYesHovered) {
+      setMascotMood('happy');
+    } else {
+      setMascotMood('shy');
+    }
+  }, [noCount, isYesHovered]);
 
   const moveButton = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    
-    // Heuristic button size
-    const btnWidth = 160; 
-    const btnHeight = 60; 
+    const btnWidth = 160;
+    const btnHeight = 60;
     const padding = 20;
 
-    // Calculate safe area
     const maxX = width - btnWidth - padding;
     const maxY = height - btnHeight - padding;
 
@@ -46,7 +50,6 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
   };
 
   const handleNoClick = (e: React.MouseEvent | React.TouchEvent) => {
-    // Stop propagation to prevent firing on underlying elements if any
     e.stopPropagation();
     setNoCount(prev => prev + 1);
     moveButton();
@@ -55,24 +58,35 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
   const getNoText = () => NO_PHRASES[Math.min(noCount, NO_PHRASES.length - 1)];
   const getYesText = () => YES_PHRASES[Math.min(noCount, YES_PHRASES.length - 1)];
 
-  // Yes button scale logic - limited growth
-  const yesScale = Math.min(1 + (noCount * 0.05), 1.15); 
+  const yesScale = Math.min(1 + (noCount * 0.05), 1.15);
 
   return (
     <div className="relative w-full max-w-md mx-auto px-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.6, type: "spring", bounce: 0.3 }}
-        className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-2xl border border-white/50 relative overflow-hidden min-h-[500px] flex flex-col items-center"
+        className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-[2rem] shadow-2xl border border-white/50 relative overflow-hidden"
       >
-        {/* Decorative background elements inside the card */}
+        {/* Decorative top gradient bar */}
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-300 via-red-300 to-pink-300" />
+
+        {/* Background glows */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-pink-100 rounded-full blur-3xl opacity-50" />
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-red-50 rounded-full blur-3xl opacity-50" />
 
-        <div className="relative z-10 flex flex-col items-center w-full h-full flex-grow">
-          <motion.div 
+        {/* Decorative stamp in corner */}
+        <motion.div
+          className="absolute top-4 right-4 w-12 h-12 opacity-70"
+          animate={{ rotate: [0, 5, 0] }}
+          transition={{ duration: 3, repeat: Infinity }}
+        >
+          <img src="./assets/deco_stamp.png" alt="" className="w-full h-full object-contain" />
+        </motion.div>
+
+        <div className="relative z-10 flex flex-col items-center w-full">
+          {/* Heart emoji header */}
+          <motion.div
             animate={{ rotate: [0, 5, -5, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             className="text-6xl mb-4 drop-shadow-sm select-none"
@@ -80,6 +94,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
             💝
           </motion.div>
 
+          {/* Title section */}
           <div className="space-y-1 text-center mb-6">
             <h2 className="text-2xl md:text-4xl font-serif font-bold text-gray-800 leading-tight">
               Will you be my Valentine?
@@ -88,41 +103,107 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               <p className="text-3xl md:text-4xl font-cursive text-pink-600 transform -rotate-2">
                 Minakshi
               </p>
+              <motion.img
+                src="./assets/particle_sparkle.png"
+                className="absolute -right-6 -top-1 w-5 h-5"
+                animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                alt=""
+              />
             </div>
           </div>
 
+          {/* Mascot section */}
           <motion.div
-            className="w-full flex justify-center mb-8 relative"
+            className="w-full flex justify-center mb-6 relative"
             whileHover={{ scale: 1.02 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl overflow-hidden border-4 border-white shadow-lg rotate-1">
-               <img 
-                 src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDdtZ2JiZDR0a3LvMWF1NW96M3F0NzM3dWY4aJrsecI1DjI5/l0HlUlsQxPiqM2BG8/giphy.gif"
-                 alt="Cute cat asking" 
-                 className="w-full h-full object-cover pointer-events-none"
-               />
-               <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative">
+              {/* Mascot image with mood-based switching */}
+              <motion.div
+                className="relative w-40 h-40 md:w-48 md:h-48"
+                key={mascotMood}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                <img
+                  src={MASCOT_IMAGES[mascotMood]}
+                  alt="Cute teddy mascot"
+                  className="w-full h-full object-contain drop-shadow-xl"
+                />
+
+                {/* Floating hearts around happy mascot */}
+                {mascotMood === 'happy' && (
+                  <>
+                    <motion.img
+                      src="./assets/particle_heart.png"
+                      className="absolute -top-2 -left-4 w-6 h-6"
+                      animate={{ y: [-5, 5, -5], rotate: [-10, 10, -10] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      alt=""
+                    />
+                    <motion.img
+                      src="./assets/particle_heart.png"
+                      className="absolute -top-4 -right-2 w-5 h-5"
+                      animate={{ y: [5, -5, 5], rotate: [10, -10, 10] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                      alt=""
+                    />
+                    <motion.img
+                      src="./assets/particle_sparkle.png"
+                      className="absolute top-0 right-0 w-4 h-4"
+                      animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      alt=""
+                    />
+                  </>
+                )}
+
+                {/* Tears effect for pleading mascot */}
+                {mascotMood === 'pleading' && (
+                  <motion.div
+                    className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-2xl"
+                    animate={{ y: [0, 3, 0], opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    💔
+                  </motion.div>
+                )}
+              </motion.div>
+
+              {/* Decorative rose */}
+              <motion.div
+                className="absolute -bottom-2 -right-6 text-3xl select-none"
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                🌹
+              </motion.div>
+
+              {/* Small bow decoration */}
+              <motion.img
+                src="./assets/deco_bow.png"
+                className="absolute -top-4 -left-6 w-10 h-10 opacity-80"
+                animate={{ rotate: [-5, 5, -5] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                alt=""
+              />
             </div>
-            
-            <motion.div 
-              className="absolute -bottom-4 -right-2 text-4xl select-none"
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              🌹
-            </motion.div>
           </motion.div>
 
-          {/* Action Area */}
-          <div className="flex flex-row items-center justify-center gap-4 w-full mt-auto mb-8 relative z-20 min-h-[60px]">
-            {/* Yes Button */}
+          {/* Centered Action Button Area */}
+          <div className="flex flex-col items-center justify-center w-full mt-2 mb-6 gap-4">
+            {/* Yes Button - Always centered */}
             <motion.button
               onClick={onYes}
+              onMouseEnter={() => setIsYesHovered(true)}
+              onMouseLeave={() => setIsYesHovered(false)}
               animate={{ scale: yesScale }}
               whileHover={{ scale: yesScale + 0.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg shadow-pink-200/50 flex items-center gap-2 z-20 relative overflow-hidden group select-none"
+              className="bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-pink-200/50 flex items-center gap-2 z-20 relative overflow-hidden group select-none"
               style={{ touchAction: 'manipulation' }}
             >
               <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
@@ -130,69 +211,91 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
               <span className="relative text-lg whitespace-nowrap">{getYesText()}</span>
             </motion.button>
 
-            {/* Placeholder for No Button to prevent layout shift */}
-            {noCount > 0 && <div className="w-[120px] h-[48px]" />}
-
-            {/* Static No Button (Initial State) */}
+            {/* No button - Below Yes (initial state only) */}
             {noCount === 0 && (
-               <motion.button
-                 onClick={handleNoClick}
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 className="bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-full hover:bg-gray-200 transition-colors border border-gray-200 select-none"
-               >
-                 {getNoText()}
-               </motion.button>
+              <motion.button
+                onClick={handleNoClick}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-full hover:bg-gray-200 transition-colors border border-gray-200 select-none"
+              >
+                {getNoText()}
+              </motion.button>
             )}
           </div>
-          
-          {/* Persistent Nagging Message */}
+
+          {/* Nagging message with proper spacing */}
           <AnimatePresence>
             {noCount > 2 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="absolute bottom-4 text-center w-full px-4"
+                className="text-center w-full pb-2"
               >
                 <p className="text-sm md:text-base font-medium text-pink-500 animate-pulse">
-                   {noCount > 5 ? "Say yes already! 🥺" : "Why are you doing this? 😭"}
+                  {noCount > 5 ? "Say yes already! 🥺" : "Why are you doing this? 😭"}
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Decorative cherries bottom */}
+          <motion.img
+            src="./assets/deco_cherries.png"
+            className="absolute -bottom-2 -left-4 w-10 h-10 opacity-70"
+            animate={{ rotate: [-3, 3, -3] }}
+            transition={{ duration: 4, repeat: Infinity }}
+            alt=""
+          />
         </div>
       </motion.div>
 
       {/* Floating No Button - Teleported to Body */}
       {noCount > 0 && createPortal(
         <motion.button
-            key="floating-no"
-            initial={{ scale: 0, opacity: 0, x: noButtonPos.x, y: noButtonPos.y }}
-            animate={{ 
-                x: noButtonPos.x, 
-                y: noButtonPos.y,
-                scale: 1,
-                opacity: 1
-            }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 500, 
-              damping: 25,
-              opacity: { duration: 0.2 }
-            }}
-            onClick={handleNoClick}
-            className="fixed top-0 left-0 z-[9999] bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-3 px-6 rounded-full shadow-xl border border-gray-200 whitespace-nowrap select-none"
-            style={{ touchAction: 'manipulation' }}
+          key="floating-no"
+          initial={{ scale: 0, opacity: 0, x: noButtonPos.x, y: noButtonPos.y }}
+          animate={{
+            x: noButtonPos.x,
+            y: noButtonPos.y,
+            scale: 1,
+            opacity: 1
+          }}
+          exit={{ scale: 0, opacity: 0 }}
+          transition={{
+            type: "spring",
+            stiffness: 500,
+            damping: 25,
+            opacity: { duration: 0.2 }
+          }}
+          onClick={handleNoClick}
+          className="fixed top-0 left-0 z-[9999] bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-3 px-6 rounded-full shadow-xl border border-gray-200 whitespace-nowrap select-none flex items-center gap-2"
+          style={{ touchAction: 'manipulation' }}
         >
-             {getNoText()}
-             <span className="ml-2">{noCount > 5 ? "🏃‍♂️" : "😢"}</span>
+          <span>{getNoText()}</span>
+          <span>{noCount > 5 ? "🏃‍♂️" : "😢"}</span>
         </motion.button>,
         document.body
       )}
 
+      {/* "Are you sure?" speech bubble when clicking no */}
+      <AnimatePresence>
+        {noCount > 0 && noCount <= 3 && (
+          <motion.div
+            initial={{ opacity: 0, x: -20, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed top-1/3 left-4 z-50 bg-white rounded-2xl px-4 py-2 shadow-lg border border-gray-100"
+            style={{ transformOrigin: 'left center' }}
+          >
+            <p className="text-gray-700 font-medium text-sm flex items-center gap-2">
+              Are you sure? <span className="text-lg">😰</span>
+            </p>
+            <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
