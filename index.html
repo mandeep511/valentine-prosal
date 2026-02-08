@@ -13,21 +13,7 @@
         font-family: 'Quicksand', sans-serif;
         background-color: #fff0f5;
         overflow: hidden;
-        cursor: none;
-      }
-      * {
-        cursor: none !important;
-      }
-      #custom-cursor {
-        position: fixed;
-        width: 64px;
-        height: 64px;
-        pointer-events: none;
-        z-index: 99999;
-        background-image: url('./assets/icon_cursor.png');
-        background-size: contain;
-        background-repeat: no-repeat;
-        transform: translate(-2px, -2px);
+        /* cursor: url('./assets/icon_cursor_small.png') 2 2, auto; */
       }
       .font-cursive {
         font-family: 'Great Vibes', cursive;
@@ -75,17 +61,7 @@
 </script>
 </head>
   <body>
-    <div id="custom-cursor"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
-      const cursor = document.getElementById('custom-cursor');
-      document.addEventListener('mousemove', (e) => {
-        cursor.style.left = e.clientX + 'px';
-        cursor.style.top = e.clientY + 'px';
-      });
-      document.addEventListener('mouseenter', () => cursor.style.opacity = '1');
-      document.addEventListener('mouseleave', () => cursor.style.opacity = '0');
-    </script>
   </body>
 </html>

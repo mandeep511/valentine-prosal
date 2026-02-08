@@ -31,28 +31,23 @@ const MASCOT_IMAGES: Record<MascotMood, string> = {
   pleading: './assets/mascot_pleading.png'
 };
 
-// CSS animations extracted outside component to prevent re-injection
+// CSS animations extracted outside component - GPU optimized
 const cardStyles = `
   @keyframes gentle-rotate {
     0%, 100% { transform: rotate(0deg); }
-    25% { transform: rotate(5deg); }
-    75% { transform: rotate(-5deg); }
+    50% { transform: rotate(4deg); }
   }
   @keyframes gentle-bob {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
+    50% { transform: translateY(-6px); }
   }
   @keyframes pulse-scale {
-    0%, 100% { transform: scale(0.9); opacity: 0.5; }
+    0%, 100% { transform: scale(0.9); opacity: 0.6; }
     50% { transform: scale(1.1); opacity: 1; }
   }
   @keyframes heart-float {
-    0%, 100% { transform: translateY(-5px) rotate(-10deg); }
-    50% { transform: translateY(5px) rotate(10deg); }
-  }
-  @keyframes heart-float-alt {
-    0%, 100% { transform: translateY(5px) rotate(10deg); }
-    50% { transform: translateY(-5px) rotate(-10deg); }
+    0%, 100% { transform: translateY(-4px) rotate(-8deg); }
+    50% { transform: translateY(4px) rotate(8deg); }
   }
   @keyframes broken-heart {
     0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.7; }
@@ -60,21 +55,28 @@ const cardStyles = `
   }
   .gentle-rotate {
     animation: gentle-rotate 4s ease-in-out infinite;
+    will-change: transform;
   }
   .gentle-bob {
-    animation: gentle-bob 2s ease-in-out infinite;
+    animation: gentle-bob 2.5s ease-in-out infinite;
+    will-change: transform;
   }
   .pulse-scale {
     animation: pulse-scale 2s ease-in-out infinite;
+    will-change: transform, opacity;
   }
   .heart-float {
     animation: heart-float 2s ease-in-out infinite;
+    will-change: transform;
   }
-  .heart-float-alt {
-    animation: heart-float-alt 1.5s ease-in-out infinite;
+  .heart-float-delay {
+    animation: heart-float 2.2s ease-in-out infinite;
+    animation-delay: 0.3s;
+    will-change: transform;
   }
   .broken-heart {
     animation: broken-heart 1.5s ease-in-out infinite;
+    will-change: transform, opacity;
   }
 `;
 
@@ -237,7 +239,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
                     />
                     <img
                       src="./assets/particle_heart.png"
-                      className="absolute -top-4 -right-2 w-5 h-5 heart-float-alt"
+                      className="absolute -top-4 -right-2 w-5 h-5 heart-float-delay"
                       alt=""
                       loading="lazy"
                     />

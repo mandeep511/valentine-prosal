@@ -1,81 +1,174 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 
-interface FloatingParticle {
-  id: number;
+interface Particle {
   x: number;
-  scale: number;
-  delay: number;
-  duration: number;
+  y: number;
+  size: number;
+  speedY: number;
+  speedX: number;
+  rotation: number;
+  rotationSpeed: number;
+  opacity: number;
   type: 'heart' | 'sparkle';
+  image: HTMLImageElement;
 }
 
-interface FloatingDeco {
+interface DecoElement {
   id: string;
   src: string;
-  position: { top?: string; bottom?: string; left?: string; right?: string };
-  size: string;
-  rotation: number;
-  animationDelay: number;
+  style: React.CSSProperties;
+  className: string;
 }
 
 const FloatingBackground: React.FC = () => {
-  // Memoize particles - only create once, never re-render
-  const particles = useMemo<FloatingParticle[]>(() =>
-    Array.from({ length: 12 }).map((_, i) => ({
-      id: i,
-      x: (i * 8) + Math.random() * 5, // Distribute evenly with slight randomness
-      scale: 0.5 + (i % 3) * 0.2,
-      delay: i * 0.8,
-      duration: 15 + (i % 4) * 5,
-      type: i % 3 === 0 ? 'sparkle' : 'heart' as const
-    }))
-  , []);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const animationRef = useRef<number>(0);
+  const imagesRef = useRef<{ heart: HTMLImageElement | null; sparkle: HTMLImageElement | null }>({
+    heart: null,
+    sparkle: null
+  });
 
-  // Memoize decorative elements
-  const decorativeElements = useMemo<FloatingDeco[]>(() => [
+  // Static decorative elements - memoized, no animations that cause reflows
+  const decorativeElements = useMemo<DecoElement[]>(() => [
     {
       id: 'bow-top-left',
       src: './assets/deco_bow.png',
-      position: { top: '5%', left: '3%' },
-      size: 'w-16 md:w-24',
-      rotation: -15,
-      animationDelay: 0
+      style: { top: '5%', left: '3%', transform: 'rotate(-15deg)' },
+      className: 'w-16 md:w-24 opacity-60'
     },
     {
       id: 'cherries-top-right',
       src: './assets/deco_cherries.png',
-      position: { top: '8%', right: '5%' },
-      size: 'w-12 md:w-16',
-      rotation: 10,
-      animationDelay: 0.5
+      style: { top: '8%', right: '5%', transform: 'rotate(10deg)' },
+      className: 'w-12 md:w-16 opacity-60'
     },
     {
       id: 'envelope-bottom-left',
       src: './assets/deco_envelope.png',
-      position: { bottom: '10%', left: '5%' },
-      size: 'w-20 md:w-28',
-      rotation: -8,
-      animationDelay: 1
+      style: { bottom: '10%', left: '5%', transform: 'rotate(-8deg)' },
+      className: 'w-20 md:w-28 opacity-50'
     },
     {
       id: 'stamp-bottom-right',
       src: './assets/deco_stamp.png',
-      position: { bottom: '15%', right: '8%' },
-      size: 'w-14 md:w-20',
-      rotation: 12,
-      animationDelay: 1.5
+      style: { bottom: '15%', right: '8%', transform: 'rotate(12deg)' },
+      className: 'w-14 md:w-20 opacity-50'
     }
   ], []);
 
-  // Memoize ambient sparkle positions (computed once)
-  const ambientSparkles = useMemo(() =>
-    Array.from({ length: 5 }).map((_, i) => ({
-      id: i,
-      left: `${15 + i * 18}%`,
-      top: `${20 + (i % 3) * 25}%`,
-      duration: 2.5 + i * 0.3
-    }))
-  , []);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    // Set canvas size
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.scale(dpr, dpr);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Preload images
+    const heartImg = new Image();
+    const sparkleImg = new Image();
+    let imagesLoaded = 0;
+
+    const onImageLoad = () => {
+      imagesLoaded++;
+      if (imagesLoaded === 2) {
+        imagesRef.current = { heart: heartImg, sparkle: sparkleImg };
+        initParticles();
+        animate();
+      }
+    };
+
+    heartImg.onload = onImageLoad;
+    sparkleImg.onload = onImageLoad;
+    heartImg.src = './assets/particle_heart.png';
+    sparkleImg.src = './assets/particle_sparkle.png';
+
+    // Initialize particles
+    const initParticles = () => {
+      const particleCount = Math.min(15, Math.floor(window.innerWidth / 100)); // Responsive count
+      particlesRef.current = [];
+
+      for (let i = 0; i < particleCount; i++) {
+        const isHeart = Math.random() > 0.3;
+        particlesRef.current.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight + window.innerHeight, // Start below viewport
+          size: 20 + Math.random() * 20,
+          speedY: 0.3 + Math.random() * 0.5, // Slow, gentle rise
+          speedX: (Math.random() - 0.5) * 0.3, // Slight horizontal drift
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.02,
+          opacity: 0.15 + Math.random() * 0.2,
+          type: isHeart ? 'heart' : 'sparkle',
+          image: isHeart ? heartImg : sparkleImg
+        });
+      }
+    };
+
+    // Animation loop - smooth 60fps
+    const animate = () => {
+      if (!ctx || !canvas) return;
+
+      // Clear with slight fade for trail effect (optional, remove for cleaner look)
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      const particles = particlesRef.current;
+      const now = performance.now();
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        // Update position
+        p.y -= p.speedY;
+        p.x += p.speedX + Math.sin(now * 0.001 + i) * 0.1; // Gentle wave motion
+        p.rotation += p.rotationSpeed;
+
+        // Reset particle when it goes above viewport
+        if (p.y < -p.size) {
+          p.y = window.innerHeight + p.size;
+          p.x = Math.random() * window.innerWidth;
+        }
+
+        // Wrap horizontally
+        if (p.x < -p.size) p.x = window.innerWidth + p.size;
+        if (p.x > window.innerWidth + p.size) p.x = -p.size;
+
+        // Draw particle
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+
+        if (p.image.complete && p.image.naturalWidth > 0) {
+          ctx.drawImage(p.image, -p.size / 2, -p.size / 2, p.size, p.size);
+        }
+
+        ctx.restore();
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', resize);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -90,101 +183,28 @@ const FloatingBackground: React.FC = () => {
         }}
       />
 
-      {/* CSS-based floating particles - much more performant than framer-motion */}
-      <style>{`
-        @keyframes floatUp {
-          0% { transform: translateY(110vh) rotate(0deg); opacity: 0.15; }
-          50% { opacity: 0.35; }
-          100% { transform: translateY(-10vh) rotate(360deg); opacity: 0.15; }
-        }
-        @keyframes gentleFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
-        @keyframes sparkle {
-          0%, 100% { opacity: 0; transform: scale(0.5); }
-          50% { opacity: 0.6; transform: scale(1.2); }
-        }
-        .float-particle {
-          will-change: transform, opacity;
-          animation: floatUp var(--duration) linear infinite;
-          animation-delay: var(--delay);
-        }
-        .gentle-float {
-          will-change: transform;
-          animation: gentleFloat 4s ease-in-out infinite;
-          animation-delay: var(--delay);
-        }
-        .sparkle-effect {
-          will-change: transform, opacity;
-          animation: sparkle var(--duration) ease-in-out infinite;
-          animation-delay: var(--delay);
-        }
-      `}</style>
+      {/* Canvas for particles - GPU accelerated */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        style={{
+          willChange: 'transform',
+          contain: 'strict',
+          isolation: 'isolate'
+        }}
+      />
 
-      {/* Floating particles using CSS animations */}
-      {particles.map((particle) => (
-        <div
-          key={particle.id}
-          className="absolute float-particle select-none"
-          style={{
-            left: `${particle.x}%`,
-            width: particle.type === 'heart' ? '32px' : '24px',
-            height: particle.type === 'heart' ? '32px' : '24px',
-            '--duration': `${particle.duration}s`,
-            '--delay': `${particle.delay}s`,
-            transform: `scale(${particle.scale})`,
-          } as React.CSSProperties}
-        >
-          <img
-            src={particle.type === 'heart' ? './assets/particle_heart.png' : './assets/particle_sparkle.png'}
-            alt=""
-            className="w-full h-full object-contain"
-            loading="lazy"
-          />
-        </div>
-      ))}
-
-      {/* Static decorative elements with CSS animation */}
+      {/* Static decorative elements - no animations, just positioned */}
       {decorativeElements.map((deco) => (
-        <div
+        <img
           key={deco.id}
-          className={`absolute ${deco.size} opacity-60 gentle-float`}
-          style={{
-            ...deco.position,
-            transform: `rotate(${deco.rotation}deg)`,
-            '--delay': `${deco.animationDelay}s`,
-          } as React.CSSProperties}
-        >
-          <img
-            src={deco.src}
-            alt=""
-            className="w-full h-full object-contain drop-shadow-lg"
-            loading="lazy"
-          />
-        </div>
-      ))}
-
-      {/* Ambient sparkle effects with CSS */}
-      {ambientSparkles.map((sparkle) => (
-        <div
-          key={`ambient-sparkle-${sparkle.id}`}
-          className="absolute w-4 h-4 sparkle-effect"
-          style={{
-            left: sparkle.left,
-            top: sparkle.top,
-            '--duration': `${sparkle.duration}s`,
-            '--delay': `${sparkle.id * 0.5}s`,
-          } as React.CSSProperties}
-        >
-          <img
-            src="./assets/particle_sparkle.png"
-            alt=""
-            className="w-full h-full object-contain"
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))' }}
-            loading="lazy"
-          />
-        </div>
+          src={deco.src}
+          alt=""
+          className={`absolute ${deco.className}`}
+          style={deco.style}
+          loading="lazy"
+          decoding="async"
+        />
       ))}
     </div>
   );
