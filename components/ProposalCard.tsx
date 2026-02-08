@@ -197,7 +197,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
           <div className="w-full flex justify-center mb-6 relative">
             <div className="relative">
               {/* "Are you sure?" speech bubble tied to mascot */}
-              <AnimatePresence>
+              {/* <AnimatePresence>
                 {noCount > 0 && noCount <= 3 && (
                   <motion.div
                     initial={{ opacity: 0, x: 20, scale: 0.8 }}
@@ -212,7 +212,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ onYes }) => {
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
                   </motion.div>
                 )}
-              </AnimatePresence>
+              </AnimatePresence> */}
 
               {/* Mascot image with mood-based switching */}
               <motion.div
